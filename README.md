@@ -24,7 +24,10 @@
   - Run `bash get-rib.sh && python3 ip2asn.py --rib-path processed_rib.txt` to update the trie_data.json.gz
 - `IP2ASN` class is added
 
+Run `pip install pytricia tqdm termcolor` first.
+
 ## How to use the IP2ASN class from other scripts
+
 
 ```python
 import ip2asn
