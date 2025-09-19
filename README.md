@@ -21,7 +21,8 @@
 
 - The modified version of ip2asn.py loads `trie_data.json.gz` on the same directory as ip2asn.py
 - `trie_data_json.gz` in this directory is generated on 2025/9/19 from the data at archive.routeviews.org.
-- `IP2ASN` class is provided
+  - Run `bash get-rib.sh && python3 ip2asn.py --rib-path processed_rib.txt` to update the trie_data.json.gz
+- `IP2ASN` class is added
 
 ## How to use the IP2ASN class from other scripts
 
