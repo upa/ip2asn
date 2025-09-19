@@ -16,19 +16,13 @@ from pathlib import Path
 
 
 # Constants
-HOME_DIR = str(Path.home())
-TRIE_DIR = os.path.join(HOME_DIR, ".ip2asn")
-os.makedirs(TRIE_DIR, exist_ok=True)
+SCRIPT_DIR = os.path.join(os.path.dirname(__file__))
+TRIE_DIR = SCRIPT_DIR
 TRIE_SAVE_PATH = os.path.join(TRIE_DIR, "trie_data.json.gz")
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger()
-
-
-
-
-
 
 
 
@@ -86,7 +80,7 @@ def build_trie_from_rib(rib_file_path):
     return trie
 
 
-def load_trie_from_file(file_path):
+def load_trie_from_file(file_path) -> pytricia.PyTricia:
     """
     Load a Trie from a saved file.
 
@@ -101,7 +95,12 @@ def load_trie_from_file(file_path):
     trie = pytricia.PyTricia()
     for key, value in data.items():
         trie[key] = value
+
+    if trie.has_key("0.0.0.0/0"):
+        trie.delete("0.0.0.0/0") # remoev default route
+
     return trie
+
 
 def find_asn_for_ips(ips, trie):
     """
@@ -122,37 +121,62 @@ def find_asn_for_ips(ips, trie):
             pass
     return asn_map
 
-parser = argparse.ArgumentParser(description="Find ASN for given IPs.")
-parser.add_argument("-j", "--json", action='store_true', help='Output results in JSON format.')
-parser.add_argument("-rp", "--rib-path", default="processed_rib.txt", help="Path to the RIB file. Defaults to 'processed_rib.txt'.")
-args = parser.parse_args()
 
-
-# Main execution starts here
-
-
-if os.path.exists(TRIE_SAVE_PATH):
-    trie = load_trie_from_file(TRIE_SAVE_PATH)
-else:
-    logger.info("Serialized trie not found. Building trie from RIB dump...")
-    logger.info("This may take some time..")
-    trie = build_trie_from_rib(args.rib_path)
-
-ips_to_search = [line.strip() for line in sys.stdin]
-filtered_ips_to_search = [ip for ip in ips_to_search if not is_private_ip(ip)]
-asns = find_asn_for_ips(filtered_ips_to_search, trie)
-
-if args.json:
-    asn_to_ips = defaultdict(list)
-    for ip, asn in asns.items():
-        if asn:
-            asn_to_ips[f"AS{asn}"].append(ip)
+class IP2ASN():
+    def __init__(self, trie_data_json_gz:str|None = None):
+        if trie_data_json_gz:
+            file_path = trie_data_json_gz
         else:
-            asn_to_ips["NOT_FOUND"].append(ip)
-    print(json.dumps(asn_to_ips, indent=4))
-else:
-    for ip, asn in asns.items():
+            file_path = TRIE_SAVE_PATH
+
+        self.trie = load_trie_from_file(file_path)
+
+
+    def lookup(self, ip:str) -> int|None:
+
+        if ipaddress.ip_address(ip).is_private:
+            raise ValueError(f"Private IP Address {ip}")
+
+        asn = self.trie.get(ip)
         if asn:
-            print(f"{colored(ip, 'yellow')} {colored(f'[AS{asn}]', 'green')}")
-        else:
-            print(f"{colored(ip, 'yellow')} {colored('NOT_FOUND', 'red')}")
+            return int(asn)
+        return None
+
+
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="Find ASN for given IPs.")
+    parser.add_argument("-j", "--json", action='store_true', help='Output results in JSON format.')
+    parser.add_argument("-rp", "--rib-path", default="processed_rib.txt", help="Path to the RIB file. Defaults to 'processed_rib.txt'.")
+    args = parser.parse_args()
+
+
+    # Main execution starts here
+
+
+    if os.path.exists(TRIE_SAVE_PATH):
+        trie = load_trie_from_file(TRIE_SAVE_PATH)
+    else:
+        logger.info("Serialized trie not found. Building trie from RIB dump...")
+        logger.info("This may take some time..")
+        trie = build_trie_from_rib(args.rib_path)
+
+    ips_to_search = [line.strip() for line in sys.stdin]
+    filtered_ips_to_search = [ip for ip in ips_to_search if not is_private_ip(ip)]
+    asns = find_asn_for_ips(filtered_ips_to_search, trie)
+
+    if args.json:
+        asn_to_ips = defaultdict(list)
+        for ip, asn in asns.items():
+            if asn:
+                asn_to_ips[f"AS{asn}"].append(ip)
+            else:
+                asn_to_ips["NOT_FOUND"].append(ip)
+        print(json.dumps(asn_to_ips, indent=4))
+    else:
+        for ip, asn in asns.items():
+            if asn:
+                print(f"{colored(ip, 'yellow')} {colored(f'[AS{asn}]', 'green')}")
+            else:
+                print(f"{colored(ip, 'yellow')} {colored('NOT_FOUND', 'red')}")

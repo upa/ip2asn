@@ -17,6 +17,27 @@
 </p>
 
 
+# A modified version of ip2asn, 2025/9/19
+
+- The modified version of ip2asn.py loads `trie_data.json.gz` on the same directory as ip2asn.py
+- `trie_data_json.gz` in this directory is generated on 2025/9/19 from the data at archive.routeviews.org.
+- `IP2ASN` class is provided
+
+## How to use the IP2ASN class from other scripts
+
+```python
+import ip2asn
+
+i2a = ip2asn.IP2ASN()
+
+asn = i2a.lookup("1.1.1.1")
+
+print(asn) # 13335
+```
+
+
+
+
 ![ip2asn](https://github.com/devanshbatham/ip2asn/blob/main/static/ip2asn.png?raw=true)
 
 # Installation
